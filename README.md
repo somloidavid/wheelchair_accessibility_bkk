@@ -5,7 +5,8 @@ Objective: To gather and analyze data on BKK tram, bus and metro routes, focusin
 
 Key Concepts and tools: Data from APIs, requests, data analysis.
 
-##Keypoints: 
-How many stops can you reach from a given accessible station?
-Are there any "isolated" areas (inaccessible by wheelchairs)? 
-Is the shortest route entirely accessible?
+## Keypoints:
+
+- How many stops can you reach from a given accessible station?
+- Are there any "isolated" areas (inaccessible by wheelchairs)? 
+- Is the shortest route entirely accessible?
