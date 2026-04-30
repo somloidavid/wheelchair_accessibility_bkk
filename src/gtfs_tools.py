@@ -1,20 +1,27 @@
 from __future__ import annotations
+import argparse
 import csv
+import json
 import os
 import shutil
 import tempfile
 from collections import defaultdict
+from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 from urllib.request import Request, urlopen
 from zipfile import ZipFile
+try:
+    from src.models.gtfs import GTFSNetwork, GTFSRoute, GTFSStop
+except ImportError:
+    from models.gtfs import GTFSNetwork, GTFSRoute, GTFSStop
 
 GTFS_ZIP_URL = os.getenv(
     "GTFS_ZIP_URL",
     "https://go.bkk.hu/api/static/v1/public-gtfs/budapest_gtfs.zip",
 )
-GTFS_CACHE_DIR = Path(os.getenv("GTFS_CACHE_DIR", "data/gtfs_cache"))
-GTFS_EXTRACT_DIR = Path(os.getenv("GTFS_EXTRACT_DIR", GTFS_CACHE_DIR / "budapest_gtfs"))
+GTFS_DATA_DIR = Path(os.getenv("GTFS_DATA_DIR", "data"))
+GTFS_EXTRACT_DIR = Path(os.getenv("GTFS_EXTRACT_DIR", GTFS_DATA_DIR / "budapest_gtfs"))
 
 gtfs_path = os.getenv("DEFAULT_GTFS_PATH", str(GTFS_EXTRACT_DIR))
 
@@ -74,7 +81,6 @@ def _extract_gtfs_zip(zip_path: Path, extract_dir: Path) -> Path:
 
     return extract_dir
 
-
 def ensure_gtfs_root(candidate_path: str | os.PathLike[str] | None = None) -> str:
     candidate = Path(candidate_path) if candidate_path else None
 
@@ -91,7 +97,7 @@ def ensure_gtfs_root(candidate_path: str | os.PathLike[str] | None = None) -> st
     if discovered is not None:
         return str(discovered)
 
-    zip_path = GTFS_CACHE_DIR / "budapest_gtfs.zip"
+    zip_path = GTFS_DATA_DIR / "budapest_gtfs.zip"
     if not zip_path.exists():
         _download_gtfs_zip(zip_path)
 
@@ -166,17 +172,16 @@ def get_route_ids_by_type(
 ) -> List[str]:
     return [row.get("route_id", "") for row in get_routes_by_type(route_types, gtfs_path) if row.get("route_id")]
 
-def build_accessibility_index(
+def build_gtfs_network(
     gtfs_path: str = gtfs_path,
     route_types: Sequence[int] = DEFAULT_ROUTE_TYPES,
-) -> dict:
+) -> GTFSNetwork:
     routes = {
         row["route_id"]: row
         for row in get_routes_by_type(route_types, gtfs_path)
         if row.get("route_id")
     }
     stops = {row["stop_id"]: row for row in load_gtfs_stops(gtfs_path) if row.get("stop_id")}
-    trips = load_gtfs_trips(gtfs_path)
     stop_times = load_gtfs_stop_times(gtfs_path)
 
     trip_stop_pairs: dict[str, List[tuple[int, str]]] = defaultdict(list)
@@ -195,57 +200,43 @@ def build_accessibility_index(
         for trip_id, pairs in trip_stop_pairs.items()
     }
 
-    route_trip_ids: dict[str, List[str]] = defaultdict(list)
     route_stop_ids: dict[str, List[str]] = defaultdict(list)
-    route_trip_accessibility: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"accessible": 0, "inaccessible": 0, "unknown": 0}
-    )
 
-    for row in trips:
+    for row in load_gtfs_trips(gtfs_path):
         route_id = row.get("route_id", "")
         trip_id = row.get("trip_id", "")
         if not route_id or route_id not in routes or not trip_id:
             continue
 
-        route_trip_ids[route_id].append(trip_id)
         route_stop_ids[route_id].extend(trip_stop_ids.get(trip_id, []))
 
-        accessible_flag = _parse_wheelchair_flag(row.get("wheelchair_accessible"))
-        if accessible_flag is True:
-            route_trip_accessibility[route_id]["accessible"] += 1
-        elif accessible_flag is False:
-            route_trip_accessibility[route_id]["inaccessible"] += 1
-        else:
-            route_trip_accessibility[route_id]["unknown"] += 1
-
-    stops_index: dict[str, dict] = {}
-    routes_index: dict[str, dict] = {}
+    stops_index: dict[str, GTFSStop] = {}
+    routes_index: dict[str, GTFSRoute] = {}
 
     for route_id, route in routes.items():
         line_label = route.get("route_short_name") or route_id
         ordered_stop_ids = _unique_in_order(route_stop_ids.get(route_id, []))
-        stop_rows: List[dict] = []
-        accessible_stops: List[dict] = []
-        inaccessible_stops: List[dict] = []
-        unknown_stops: List[dict] = []
+        stop_rows: List[GTFSStop] = []
+        accessible_stops: List[GTFSStop] = []
+        inaccessible_stops: List[GTFSStop] = []
+        unknown_stops: List[GTFSStop] = []
 
         for stop_id in ordered_stop_ids:
             stop_row = stops.get(stop_id, {})
             wheelchair_boarding = _parse_wheelchair_flag(stop_row.get("wheelchair_boarding"))
             stop_record = stops_index.get(stop_id)
             if stop_record is None:
-                stop_record = {
-                    "id": stop_id,
-                    "name": stop_row.get("stop_name"),
-                    "lat": stop_row.get("stop_lat"),
-                    "lon": stop_row.get("stop_lon"),
-                    "wheelchair_boarding": wheelchair_boarding,
-                    "lines": [],
-                }
+                stop_record = GTFSStop(
+                    id=stop_id,
+                    name=stop_row.get("stop_name"),
+                    lat=stop_row.get("stop_lat"),
+                    lon=stop_row.get("stop_lon"),
+                    wheelchair_boarding=wheelchair_boarding,
+                )
                 stops_index[stop_id] = stop_record
 
-            if line_label not in stop_record["lines"]:
-                stop_record["lines"].append(line_label)
+            if line_label not in stop_record.lines:
+                stop_record.lines.append(line_label)
 
             stop_rows.append(stop_record)
             if wheelchair_boarding is True:
@@ -255,35 +246,68 @@ def build_accessibility_index(
             else:
                 unknown_stops.append(stop_record)
 
-        route_accessibility = route_trip_accessibility.get(route_id, {})
-        routes_index[route_id] = {
-            "id": route_id,
-            "short_name": route.get("route_short_name"),
-            "long_name": route.get("route_long_name"),
-            "route_type": _to_int(route.get("route_type")),
-            "trip_count": len(route_trip_ids.get(route_id, [])),
-            "accessible_trip_count": route_accessibility.get("accessible", 0),
-            "inaccessible_trip_count": route_accessibility.get("inaccessible", 0),
-            "unknown_trip_count": route_accessibility.get("unknown", 0),
-            "stop_count": len(stop_rows),
-            "accessible_stop_count": len(accessible_stops),
-            "inaccessible_stop_count": len(inaccessible_stops),
-            "unknown_stop_count": len(unknown_stops),
-            "is_wheelchair_accessible": bool(accessible_stops) and bool(route_accessibility.get("accessible", 0)),
-            "stops": stop_rows,
-            "accessible_stops": accessible_stops,
-            "inaccessible_stops": inaccessible_stops,
-            "unknown_stops": unknown_stops,
-        }
+        routes_index[route_id] = GTFSRoute(
+            id=route_id,
+            short_name=route.get("route_short_name"),
+            long_name=route.get("route_long_name"),
+            route_type=_to_int(route.get("route_type")),
+            stop_count=len(stop_rows),
+            accessible_stop_count=len(accessible_stops),
+            inaccessible_stop_count=len(inaccessible_stops),
+            unknown_stop_count=len(unknown_stops),
+            stops=stop_rows,
+            accessible_stops=accessible_stops,
+            inaccessible_stops=inaccessible_stops,
+            unknown_stops=unknown_stops,
+        )
+
+    return GTFSNetwork(
+        routes=routes_index,
+        stops=stops_index,
+        route_types=list(route_types),
+    )
+
+def get_accessible_routes(accessibility_index: GTFSNetwork) -> List[GTFSRoute]:
+    return accessibility_index.accessible_routes()
+
+
+def get_accessible_stops(accessibility_index: GTFSNetwork) -> List[GTFSStop]:
+    return accessibility_index.accessible_stops()
+
+
+def extract_stops_from_response(accessibility_index: GTFSNetwork) -> dict[str, GTFSStop]:
+    return accessibility_index.stops
+
+
+def count_accessible_stops(stops: dict[str, GTFSStop]) -> dict:
+    accessible = [stop for stop in stops.values() if stop.wheelchair_boarding is True]
+    inaccessible = [stop for stop in stops.values() if stop.wheelchair_boarding is False]
+    unknown = [stop for stop in stops.values() if stop.wheelchair_boarding is None]
 
     return {
-        "routes": routes_index,
-        "stops": stops_index,
-        "route_types": list(route_types),
+        "total": len(stops),
+        "accessible": len(accessible),
+        "inaccessible": len(inaccessible),
+        "unknown": len(unknown),
+        "accessible_stops": accessible,
+        "inaccessible_stops": inaccessible,
+        "unknown_stops": unknown,
     }
 
-def get_accessible_routes(accessibility_index: dict) -> List[dict]:
-    return [route for route in accessibility_index.get("routes", {}).values() if route.get("is_wheelchair_accessible")]
-
-def get_accessible_stops(accessibility_index: dict) -> List[dict]:
-    return [stop for stop in accessibility_index.get("stops", {}).values() if stop.get("wheelchair_boarding")]
+__all__ = [
+    "GTFSStop",
+    "GTFSRoute",
+    "GTFSNetwork",
+    "build_accessibility_index",
+    "get_accessible_routes",
+    "get_accessible_stops",
+    "extract_stops_from_response",
+    "count_accessible_stops",
+    "ensure_gtfs_root",
+    "load_gtfs_routes",
+    "load_gtfs_stops",
+    "load_gtfs_trips",
+    "load_gtfs_stop_times",
+    "get_routes_by_type",
+    "get_route_ids_by_type",
+]
