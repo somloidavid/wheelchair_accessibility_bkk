@@ -1,8 +1,8 @@
-from gtfs_tools import build_accessibility_index, get_accessible_routes
+from gtfs_tools import build_gtfs_network, get_accessible_routes
 from models.gtfs import GTFSNetwork, GTFSStop
 
-def extract_stops_from_response(accessibility_index: GTFSNetwork) -> dict[str, GTFSStop]:
-	return accessibility_index.stops
+def extract_stops_from_response(gtfs_network: GTFSNetwork) -> dict[str, GTFSStop]:
+	return gtfs_network.stops
 
 def count_accessible_stops(stops: dict[str, GTFSStop]) -> dict:
 	accessible = []
@@ -31,12 +31,12 @@ def count_accessible_stops(stops: dict[str, GTFSStop]) -> dict:
 
 if __name__ == "__main__":
 	try:
-		accessibility_index = build_accessibility_index()
-		stops = extract_stops_from_response(accessibility_index)
+		gtfs_network = build_gtfs_network()
+		stops = extract_stops_from_response(gtfs_network)
 		summary = count_accessible_stops(stops)
-		accessible_routes = get_accessible_routes(accessibility_index)
+		accessible_routes = get_accessible_routes(gtfs_network)
 
-		print(f"Routes in scope: {len(accessibility_index.routes)}")
+		print(f"Routes in scope: {len(gtfs_network.routes)}")
 		print(f"Wheelchair-accessible routes: {len(accessible_routes)}")
 		print(f"Total stops in scope: {summary['total']}")
 		print(f"Accessible stops: {summary['accessible']}")
