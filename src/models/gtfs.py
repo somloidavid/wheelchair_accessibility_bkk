@@ -1,5 +1,5 @@
-from __future__ import annotations
 from dataclasses import dataclass, field
+from typing import ClassVar
 
 @dataclass(slots=True)
 class GTFSStop:
@@ -16,28 +16,16 @@ class GTFSRoute:
     short_name: str | None
     long_name: str | None
     route_type: int | None
-    trip_count: int = 0
-    accessible_trip_count: int = 0
-    inaccessible_trip_count: int = 0
-    unknown_trip_count: int = 0
-    stop_count: int = 0
-    accessible_stop_count: int = 0
-    inaccessible_stop_count: int = 0
-    unknown_stop_count: int = 0
-    is_wheelchair_accessible: bool = False
     stops: list[GTFSStop] = field(default_factory=list)
-    accessible_stops: list[GTFSStop] = field(default_factory=list)
-    inaccessible_stops: list[GTFSStop] = field(default_factory=list)
-    unknown_stops: list[GTFSStop] = field(default_factory=list)
+
+    ROUTE_TYPE_NAMES: ClassVar[dict[int, str]] = {
+        0: "Tram",
+        1: "Metro",
+        3: "Bus"
+    }
 
 @dataclass(slots=True)
 class GTFSNetwork:
     routes: dict[str, GTFSRoute]
     stops: dict[str, GTFSStop]
     route_types: list[int]
-
-    def accessible_routes(self) -> list[GTFSRoute]:
-        return [route for route in self.routes.values() if route.is_wheelchair_accessible]
-
-    def accessible_stops(self) -> list[GTFSStop]:
-        return [stop for stop in self.stops.values() if stop.wheelchair_boarding is True]

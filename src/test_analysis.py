@@ -1,5 +1,5 @@
-from gtfs_tools import build_gtfs_network, get_accessible_routes
-from models.gtfs import GTFSNetwork, GTFSStop
+from gtfs_tools import build_gtfs_network
+from models.gtfs import GTFSNetwork, GTFSStop, GTFSRoute
 
 def extract_stops_from_response(gtfs_network: GTFSNetwork) -> dict[str, GTFSStop]:
 	return gtfs_network.stops
@@ -34,7 +34,8 @@ if __name__ == "__main__":
 		gtfs_network = build_gtfs_network()
 		stops = extract_stops_from_response(gtfs_network)
 		summary = count_accessible_stops(stops)
-		accessible_routes = get_accessible_routes(gtfs_network)
+		accessible_routes = [route for route in gtfs_network.routes.values() if any(stop.wheelchair_boarding for stop in route.stops)]
+		fully_accessible_routes = [route for route in gtfs_network.routes.values() if all(stop.wheelchair_boarding for stop in route.stops)]
 
 		print(f"Routes in scope: {len(gtfs_network.routes)}")
 		print(f"Wheelchair-accessible routes: {len(accessible_routes)}")
@@ -45,7 +46,10 @@ if __name__ == "__main__":
 
 		print("\nAccessible routes:")
 		for route in accessible_routes[:10]:
-			print(f"  {route.short_name} ({route.id}): {route.accessible_stop_count} accessible stops")
+			print(f"{GTFSRoute.ROUTE_TYPE_NAMES[route.route_type]} {route.short_name} ({route.id}): {len([stop for stop in route.stops if stop.wheelchair_boarding is True])} accessible stops")
+		print("\nFully accessible routes:")
+		for route in fully_accessible_routes[:10]:
+			print(f"{GTFSRoute.ROUTE_TYPE_NAMES[route.route_type]} {route.short_name} ({route.id}): {len([stop for stop in route.stops if stop.wheelchair_boarding is True])} fully accessible stops")
 		print("\nSample stops:")
 		for stop_id, stop in list(stops.items())[:5]:
 			print(f"  {stop.name} ({stop.id}): {stop.wheelchair_boarding}")
