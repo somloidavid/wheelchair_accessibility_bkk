@@ -1,12 +1,8 @@
-from __future__ import annotations
-import argparse
 import csv
-import json
 import os
 import shutil
 import tempfile
 from collections import defaultdict
-from dataclasses import asdict
 from pathlib import Path
 from typing import Dict, Iterable, List, Sequence
 from urllib.request import Request, urlopen
@@ -21,13 +17,14 @@ GTFS_ZIP_URL = os.getenv(
     "https://go.bkk.hu/api/static/v1/public-gtfs/budapest_gtfs.zip",
 )
 GTFS_DATA_DIR = Path(os.getenv("GTFS_DATA_DIR", "data"))
-GTFS_EXTRACT_DIR = Path(os.getenv("GTFS_EXTRACT_DIR", GTFS_DATA_DIR / "budapest_gtfs"))
+GTFS_EXTRACT_DIR = Path(os.getenv("GTFS_EXTRACT_DIR", f"{GTFS_DATA_DIR}/budapest_gtfs"))
 
 gtfs_path = os.getenv("DEFAULT_GTFS_PATH", str(GTFS_EXTRACT_DIR))
 
 TRAM_ROUTE_TYPE = 0
 METRO_ROUTE_TYPE = 1
-DEFAULT_ROUTE_TYPES = (TRAM_ROUTE_TYPE, METRO_ROUTE_TYPE)
+BUS_ROUTE_TYPE = 3
+DEFAULT_ROUTE_TYPES = (TRAM_ROUTE_TYPE, METRO_ROUTE_TYPE, BUS_ROUTE_TYPE)
 
 REQUIRED_GTFS_FILES = (
     "routes.txt",
@@ -36,26 +33,9 @@ REQUIRED_GTFS_FILES = (
     "stop_times.txt",
 )
 
-def _has_required_files(folder: Path) -> bool:
-    return folder.is_dir() and all((folder / filename).exists() for filename in REQUIRED_GTFS_FILES)
-
-def _find_gtfs_root(search_root: Path) -> Path | None:
-    if _has_required_files(search_root):
-        return search_root
-
-    if not search_root.exists() or not search_root.is_dir():
-        return None
-
-    for current_dir, _, _ in os.walk(search_root):
-        candidate = Path(current_dir)
-        if _has_required_files(candidate):
-            return candidate
-
-    return None
-
 def _download_gtfs_zip(zip_path: Path) -> None:
     zip_path.parent.mkdir(parents=True, exist_ok=True)
-    request = Request(GTFS_ZIP_URL, headers={"User-Agent": "Mozilla/5.0", "Accept": "application/zip"})
+    request = Request(GTFS_ZIP_URL, headers={"Accept": "application/zip"})
     with urlopen(request) as response, open(zip_path, "wb") as target_file:
         shutil.copyfileobj(response, target_file)
 
@@ -70,14 +50,7 @@ def _extract_gtfs_zip(zip_path: Path, extract_dir: Path) -> Path:
         with ZipFile(zip_path) as archive:
             archive.extractall(temp_extract_dir)
 
-        discovered_root = _find_gtfs_root(temp_extract_dir)
-        if discovered_root is None:
-            raise FileNotFoundError(
-                "Downloaded GTFS archive did not contain the expected core files: "
-                + ", ".join(REQUIRED_GTFS_FILES)
-            )
-
-        shutil.copytree(discovered_root, extract_dir)
+        shutil.copytree(temp_extract_dir, extract_dir)
 
     return extract_dir
 
@@ -89,13 +62,11 @@ def ensure_gtfs_root(candidate_path: str | os.PathLike[str] | None = None) -> st
             extracted = _extract_gtfs_zip(candidate, GTFS_EXTRACT_DIR)
             return str(extracted)
 
-        discovered = _find_gtfs_root(candidate)
-        if discovered is not None:
-            return str(discovered)
+        if candidate.exists() and candidate.is_dir():
+            return str(candidate)
 
-    discovered = _find_gtfs_root(GTFS_EXTRACT_DIR)
-    if discovered is not None:
-        return str(discovered)
+    if GTFS_EXTRACT_DIR.exists():
+        return str(GTFS_EXTRACT_DIR)
 
     zip_path = GTFS_DATA_DIR / "budapest_gtfs.zip"
     if not zip_path.exists():
@@ -166,12 +137,6 @@ def get_routes_by_type(
             routes.append(row)
     return routes
 
-def get_route_ids_by_type(
-    route_types: Sequence[int] = DEFAULT_ROUTE_TYPES,
-    gtfs_path: str = gtfs_path,
-) -> List[str]:
-    return [row.get("route_id", "") for row in get_routes_by_type(route_types, gtfs_path) if row.get("route_id")]
-
 def build_gtfs_network(
     gtfs_path: str = gtfs_path,
     route_types: Sequence[int] = DEFAULT_ROUTE_TYPES,
@@ -181,7 +146,11 @@ def build_gtfs_network(
         for row in get_routes_by_type(route_types, gtfs_path)
         if row.get("route_id")
     }
-    stops = {row["stop_id"]: row for row in load_gtfs_stops(gtfs_path) if row.get("stop_id")}
+    stops = {
+        row["stop_id"]: row 
+        for row in load_gtfs_stops(gtfs_path) 
+        if row.get("stop_id")
+    }
     stop_times = load_gtfs_stop_times(gtfs_path)
 
     trip_stop_pairs: dict[str, List[tuple[int, str]]] = defaultdict(list)
@@ -217,9 +186,6 @@ def build_gtfs_network(
         line_label = route.get("route_short_name") or route_id
         ordered_stop_ids = _unique_in_order(route_stop_ids.get(route_id, []))
         stop_rows: List[GTFSStop] = []
-        accessible_stops: List[GTFSStop] = []
-        inaccessible_stops: List[GTFSStop] = []
-        unknown_stops: List[GTFSStop] = []
 
         for stop_id in ordered_stop_ids:
             stop_row = stops.get(stop_id, {})
@@ -239,26 +205,13 @@ def build_gtfs_network(
                 stop_record.lines.append(line_label)
 
             stop_rows.append(stop_record)
-            if wheelchair_boarding is True:
-                accessible_stops.append(stop_record)
-            elif wheelchair_boarding is False:
-                inaccessible_stops.append(stop_record)
-            else:
-                unknown_stops.append(stop_record)
 
         routes_index[route_id] = GTFSRoute(
             id=route_id,
             short_name=route.get("route_short_name"),
             long_name=route.get("route_long_name"),
             route_type=_to_int(route.get("route_type")),
-            stop_count=len(stop_rows),
-            accessible_stop_count=len(accessible_stops),
-            inaccessible_stop_count=len(inaccessible_stops),
-            unknown_stop_count=len(unknown_stops),
-            stops=stop_rows,
-            accessible_stops=accessible_stops,
-            inaccessible_stops=inaccessible_stops,
-            unknown_stops=unknown_stops,
+            stops=stop_rows
         )
 
     return GTFSNetwork(
@@ -266,48 +219,3 @@ def build_gtfs_network(
         stops=stops_index,
         route_types=list(route_types),
     )
-
-def get_accessible_routes(accessibility_index: GTFSNetwork) -> List[GTFSRoute]:
-    return accessibility_index.accessible_routes()
-
-
-def get_accessible_stops(accessibility_index: GTFSNetwork) -> List[GTFSStop]:
-    return accessibility_index.accessible_stops()
-
-
-def extract_stops_from_response(accessibility_index: GTFSNetwork) -> dict[str, GTFSStop]:
-    return accessibility_index.stops
-
-
-def count_accessible_stops(stops: dict[str, GTFSStop]) -> dict:
-    accessible = [stop for stop in stops.values() if stop.wheelchair_boarding is True]
-    inaccessible = [stop for stop in stops.values() if stop.wheelchair_boarding is False]
-    unknown = [stop for stop in stops.values() if stop.wheelchair_boarding is None]
-
-    return {
-        "total": len(stops),
-        "accessible": len(accessible),
-        "inaccessible": len(inaccessible),
-        "unknown": len(unknown),
-        "accessible_stops": accessible,
-        "inaccessible_stops": inaccessible,
-        "unknown_stops": unknown,
-    }
-
-__all__ = [
-    "GTFSStop",
-    "GTFSRoute",
-    "GTFSNetwork",
-    "build_accessibility_index",
-    "get_accessible_routes",
-    "get_accessible_stops",
-    "extract_stops_from_response",
-    "count_accessible_stops",
-    "ensure_gtfs_root",
-    "load_gtfs_routes",
-    "load_gtfs_stops",
-    "load_gtfs_trips",
-    "load_gtfs_stop_times",
-    "get_routes_by_type",
-    "get_route_ids_by_type",
-]
