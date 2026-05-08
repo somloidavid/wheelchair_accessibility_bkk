@@ -1,10 +1,11 @@
 from src.gtfs_tools import build_gtfs_network
 from src.api_client import plan_trip
+from typing import cast
 
 # network = build_gtfs_network()
 #Örs vezér tere M+H:47.503260,19.137956
 #Bécsi út / Vörösvári út:47.546762,19.029194
-trip = plan_trip("47.503260,19.137956", "47.546762,19.029194", ["TRAM", "SUBWAY", "WALK"], True).data
+trip = cast(dict, plan_trip("47.503260,19.137956", "47.546762,19.029194", ["TRAM", "SUBWAY", "WALK"], True).data)
 
 itineraries = trip.get("entry", {}).get("plan", {}).get("itineraries", [])
 

@@ -15,7 +15,7 @@ class GTFSRoute:
     id: str
     short_name: str | None
     long_name: str | None
-    route_type: int | None
+    route_type: int
     stops: list[GTFSStop] = field(default_factory=list)
 
     ROUTE_TYPE_NAMES: ClassVar[dict[int, str]] = {

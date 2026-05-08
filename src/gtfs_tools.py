@@ -206,11 +206,13 @@ def build_gtfs_network(
 
             stop_rows.append(stop_record)
 
+        rt = _to_int(route.get("route_type"))
+        assert rt is not None
         routes_index[route_id] = GTFSRoute(
             id=route_id,
             short_name=route.get("route_short_name"),
             long_name=route.get("route_long_name"),
-            route_type=_to_int(route.get("route_type")),
+            route_type=rt,
             stops=stop_rows
         )
 
