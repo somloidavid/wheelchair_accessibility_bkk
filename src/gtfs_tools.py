@@ -201,8 +201,8 @@ def build_gtfs_network(
                 )
                 stops_index[stop_id] = stop_record
 
-            if line_label not in stop_record.lines:
-                stop_record.lines.append(line_label)
+            if line_label not in stop_record.route_short_names:
+                stop_record.route_short_names.append(line_label)
 
             stop_rows.append(stop_record)
 
