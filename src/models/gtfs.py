@@ -8,7 +8,7 @@ class GTFSStop:
     lat: str | None
     lon: str | None
     wheelchair_boarding: bool | None
-    lines: list[str] = field(default_factory=list)
+    route_short_names: list[str] = field(default_factory=list)
 
 @dataclass(slots=True)
 class GTFSRoute:
@@ -21,7 +21,8 @@ class GTFSRoute:
     ROUTE_TYPE_NAMES: ClassVar[dict[int, str]] = {
         0: "Tram",
         1: "Metro",
-        3: "Bus"
+        3: "Bus",
+        109: "HÉV"
     }
 
 @dataclass(slots=True)
