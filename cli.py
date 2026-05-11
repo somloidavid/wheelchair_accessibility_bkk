@@ -46,7 +46,7 @@ def print_menu():
     print(f' -- {B}MAIN MENU{R} --')
     print('[1] Plan an accessible trip')
     print('[2] Network accessibility statistics')
-    print('[3] View route accessibility details')
+    print('[3] Explore the transport network of Budapest')
     print('[0] Exit program')
     choice = int(input(' -- PLEASE SELECT AN OPTION: '))
     return choice

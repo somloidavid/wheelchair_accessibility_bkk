@@ -22,8 +22,12 @@ window_size = os.get_terminal_size().columns
 if not window_size:
     window_size = 80
 
+#1. print a whole line and show which stations are accessible
+#2. maximum reach and maximum reach comparision
+#3. islands of accessibility
+#4. backtracking to inaccessible stations
+
 def route_accessibility(network, linked_stops):
     print('|')
-    print((f'{textwrap.fill('Route accessibility is a tool to help users gather information on the lines and stops themselves, not from an analytical, but a more user-friendly point of view.', width = window_size - 3, initial_indent='| ', subsequent_indent='| ' )}'))
+    print((f'{textwrap.fill('Route accessibility is meant to be an explorational tool to help users gather information on the lines and stops themselves, not from an analytical, but a more user-friendly point of view.', width = window_size - 3, initial_indent='| ', subsequent_indent='| ' )}'))
     print('| ')
-    
