@@ -24,7 +24,7 @@ if not window_size:
 
 def print_trip_plan(network):
     print('| ')
-        print('| 1. QUICK TRIP PLANNER (Optimal vs. Accessible)')
+        print('| 1. Quick trip planner (Optimal vs. Accessible)')
         print('| Note: Please enter coordinates in "lat,lon" format.')
         
         start = input('| START POINT: ').strip()
