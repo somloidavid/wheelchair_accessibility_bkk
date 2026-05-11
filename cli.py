@@ -4,6 +4,8 @@ import textwrap
 import os
 from src.gtfs_tools import build_gtfs_network
 from cli_tools.network_tools import network_statistics
+from cli_tools.route_tools import route_accessibility
+from cli_tools.trip_planner_tools import print_trip_plan
 
 U = '\033[4m'
 R = '\033[0m'
@@ -16,10 +18,11 @@ ROUTE_TYPE_MAP = {
     3: "Bus",             # Standard Blue Bus
     4: "Ferry",           # BKK Boat services
     11: "Trolleybus",     # Red Trolleybuses
-    109: "HÉV", # HÉV (H5, H8, etc.)
+    109: "HÉV",           # HÉV (H5, H8, etc.)
     900: "Tram",          # Sometimes used for specific tram variants
 }
 
+#prints the intro
 def print_intro():
     print('=' * window_size)
     print()
@@ -38,6 +41,7 @@ def print_intro():
     print(f"  ●  Is the shortest route entirely accessible?")
     print()
 
+#prints the main menu, returns the choice as an integer
 def print_menu():
     print(f' -- {B}MAIN MENU{R} --')
     print('[1] Plan an accessible trip')
@@ -47,6 +51,7 @@ def print_menu():
     choice = int(input(' -- PLEASE SELECT AN OPTION: '))
     return choice
     
+#runs the whole thing
 def run_cli():
     global window_size
     window_size = os.get_terminal_size().columns
@@ -63,12 +68,14 @@ def run_cli():
         choice = print_menu()
         print()
         if choice == 1:
-            print(f'{I}1. Planning an accessible trip{R}')
+            print(f'{B}1. Planning an accessible trip{R}')
+            print_trip_plan(network)
         elif choice == 2:
             print(f'{B}2. Showing network accessbility statistics{R}')
             network_statistics(network, linked_stops)
         elif choice == 3:
-            print(f'{I}3. Showing line accessibily details{R}')
+            print(f'{B}3. Showing line accessibily details{R}')
+            route_accessibility(network, linked_stops)
         elif choice == 0:
             print(f'{I}Exiting program...{R}')
             print('='* window_size)
@@ -78,6 +85,8 @@ def run_cli():
             pass
         print()
 
+
+#i use this to map routes/lines to stops
 def create_stop_to_route_map(network):
     stop_map = {}
     for route in network.routes.values():
@@ -90,3 +99,4 @@ def create_stop_to_route_map(network):
 
 
 run_cli()
+
