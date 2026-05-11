@@ -44,8 +44,7 @@ def print_intro():
 #prints the main menu, returns the choice as an integer
 def print_menu():
     print(f' -- {B}MAIN MENU{R} --')
-    print('[1] Quick trip planner (Optimal vs. Accessible)')
-    print('[x] Plan an accessible trip') # i will do it tomorrow
+    print('[1] Quick trip planner ') # i will add more features to it tomorrow (now it compares the time between the accessible and not accesible routes, but i want to add the stops of both of them nad the used vehicles.)
     print('[2] Network accessibility statistics')
     print('[3] Explore the transport network of Budapest')
     print('[0] Exit program')
