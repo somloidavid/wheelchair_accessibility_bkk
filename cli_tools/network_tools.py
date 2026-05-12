@@ -105,7 +105,7 @@ def find_stop(network, linked_stops):
             current_lines = linked_stops.get(name, set())
             if current_lines:
                 lines_string = sorted({line for line in current_lines})
-                print(f'|    -- Lines: {textwrap.fill(', '.join(lines_string), width = window_size - 5, initial_indent='| ', subsequent_indent= '| ')}')
+                print(f'{textwrap.fill(', '.join(lines_string), width = window_size - 5, initial_indent='|    -- Lines: ', subsequent_indent= '|    ')}')
             else:
                 print(f'|    {I}No lines found for this stop{R}')
         print('|')
@@ -164,7 +164,7 @@ def list_top_accessible(network, linked_stops):
              n = 10
              break
          elif enter == 'y':
-             n = int(input(f' | {I}--Please enter the new value: {R}'))
+             n = int(input(f'| {I}--Please enter the new value: {R}'))
              if n > 0:
                 break
              else:
@@ -191,13 +191,14 @@ def list_top_accessible(network, linked_stops):
              unique_list.append((name, total_count, count, lines))
              unique_check.add(name)
      print('|')
-     print(f'| Top {n} stops in Budapest ranked by accessibility')
+     print(f'| Top {n} stops in Budapest ranked by accessibility:')
      i = 0
      for name, total_count, count, lines in unique_list[:n]:
          i += 1
          percentage = (count / total_count * 100) if total_count > 0 else 0
-         print(f'| {i}. {name:<25} | {count:<2} |  altogether {percentage:.2f}% accessible')
-         print(f'|    -- Accessible lines: {textwrap.fill(', '.join(sorted(lines)), width = window_size - 2, initial_indent='| ', subsequent_indent= '| ')}')
+         print(f'| {i}. {name:<15} | {count:<2} |  altogether {percentage:.2f}% accessible')
+         print(f'{textwrap.fill(', '.join(sorted(lines)), width = window_size - 2, initial_indent='|    -- Accessible lines: ', subsequent_indent= '|    ')}')
+         print('|')
      print('|')
 
 def calculate_line_score(line):
@@ -218,6 +219,7 @@ def list_top_accessible_transport(network):
         if line_type not in transport_groups:
             transport_groups[line_type] = []
         transport_groups[line_type].append(line)
+    group_results = []
     for line_type, lines in transport_groups.items():
         type_name = ROUTE_TYPE_MAP.get(line_type, f'Other ({line_type})')
         line_scores = []
@@ -225,8 +227,18 @@ def list_top_accessible_transport(network):
             score = calculate_line_score(l)
             line_scores.append((l.short_name, score))
         avg_accessibility = sum(s for name, s in line_scores) / len(line_scores)
-        top_3 = sorted(line_scores, key = lambda x: x[1], reverse = True)[:3]
+        unqiue_scores = {}
+        for name, score in line_scores:
+            if name not in unqiue_scores or score > unqiue_scores[name]:
+                unqiue_scores[name] = score
+        top_3 = sorted(unqiue_scores.items(), key = lambda x: x[1], reverse = True)[:3]
         top_3_string = [f"{name} ({score})" for name, score in top_3]
-        print(f'| ◦ {type_name.upper():<25} | altogether {avg_accessibility :.2f}% accessible')
-        print(f"|    -- Top 3 most accessible lines: {', '.join(top_3_string)} ")
+        group_results.append({
+            'type_name': type_name,
+            'avg_accessibility': avg_accessibility,
+            'top_3_string': top_3_string})
+        sorted_groups = sorted(group_results, key=lambda x: x['avg_accessibility'], reverse=True)
+    for result in sorted_groups:
+        print(f"| ◦ {result['type_name'].upper():<25} | altogether {result['avg_accessibility']:.2f}% accessible")
+        print(f"|    -- Top 3 most accessible lines: {', '.join(result['top_3_string'])} ")
     print('|')

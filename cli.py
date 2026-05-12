@@ -4,7 +4,7 @@ import textwrap
 import os
 from src.gtfs_tools import build_gtfs_network
 from cli_tools.network_tools import network_statistics
-from cli_tools.route_tools import route_accessibility
+from cli_tools.route_tools import explore_route
 from cli_tools.trip_planner_tools import print_trip_plan
 
 U = '\033[4m'
@@ -36,9 +36,9 @@ def print_intro():
     print(textwrap.fill(introduction_text, width = (window_size - 2), initial_indent=' '))
     print()
     print(f' -- {U}Some key questions from our project:{R} ')
-    print(f"  ●  How many stops can you reach from a given station?")
-    print(f"  ●  Are there any 'isolated' areas (inaccessible by wheelchairs)? ")
-    print(f"  ●  Is the shortest route entirely accessible?")
+    print(f"  •  How many stops can you reach from a given station?")
+    print(f"  •  Are there any 'isolated' areas (inaccessible by wheelchairs)? ")
+    print(f"  •  Is the shortest route entirely accessible?")
     print()
 
 #prints the main menu, returns the choice as an integer
@@ -74,8 +74,8 @@ def run_cli():
             print(f'{B}2. Showing network accessbility statistics{R}')
             network_statistics(network, linked_stops)
         elif choice == 3:
-            print(f'{B}3. Showing line accessibily details{R}')
-            route_accessibility(network, linked_stops)
+            print(f'{B}3. Showing the tools of exploration{R}')
+            explore_route(network, linked_stops)
         elif choice == 0:
             print(f'{I}Exiting program...{R}')
             print('='* window_size)
