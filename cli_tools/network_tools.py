@@ -1,6 +1,7 @@
 from src.api_client import plan_trip
 import os
 from src.gtfs_tools import build_gtfs_network
+from analysis.visualization_utils import show_all_plots
 import textwrap
 
 U = '\033[4m'
@@ -57,6 +58,7 @@ def network_statistics(network, linked_stops):
                 list_top_accessible_transport(network)
             elif sub_choice == 5:
                 print(f'| {I}[2.5 Showing accessibility diagrams]{R}')
+                show_all_plots(network)
             elif sub_choice == 0:
                 print(f"| {I}Returning to the main menu...{R}")
                 break
