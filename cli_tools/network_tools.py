@@ -62,6 +62,9 @@ def network_statistics(network, linked_stops):
             elif sub_choice == 0:
                 print(f"| {I}Returning to the main menu...{R}")
                 break
+            else:
+                print(f'| {I}Not a valid option{R}')
+                continue
     except Exception as e:
         print(f"[!] Analysis Error: {e}")
     print()
