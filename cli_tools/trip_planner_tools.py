@@ -1,4 +1,7 @@
-from src.api_client import plan_trip
+try:
+    from src.api_client import plan_trip, fetch_json
+except ImportError:
+    from api_client import plan_trip, fetch_json
 import os
 from src.gtfs_tools import build_gtfs_network
 import textwrap

@@ -14,7 +14,7 @@ I = '\033[3m'
 
 ROUTE_TYPE_MAP = {
     0: "Tram",            # Standard Tram
-    1: "Subway/Metro",    # M1, M2, M3, M4
+    1: "Subway/Metro",    # M1, M2, M3, M41
     3: "Bus",             # Standard Blue Bus
     4: "Ferry",           # BKK Boat services
     11: "Trolleybus",     # Red Trolleybuses
