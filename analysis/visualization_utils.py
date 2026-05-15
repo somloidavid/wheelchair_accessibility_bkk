@@ -1,6 +1,11 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
+U = '\033[4m'
+R = '\033[0m'
+B = '\033[1m'
+I = '\033[3m'
+
 def plot_pie(accessible_count, inaccessible_count, unknown_count):
     fig1, ax1 = plt.subplots(figsize=(10, 8))
     labels = ['Accessible', 'Non-Accessible', 'Unknown']
@@ -182,6 +187,51 @@ def plot_top_routes(network):
     return fig5
 
 def show_all_plots(network):
+    while True:
+        print(f'| ')
+        print(f'| ACCESSIBILITY DIAGRAMS')
+        print('|')
+        print(f'| [1] Overall accessibility (pie chart)')
+        print(f'| [2] Acessibility by transport mode (bar chart)')
+        print(f"| [3] Geographic stop map")
+        print("| [4] Route acessibility (horizontal bar)")
+        print('| [5] Top 10 acessible routes (bar chart)')
+        print(f"| [0] Return to the network menu")
+        print(f'| ')
+        plot_choice = input(f"| {I}--PLEASE SELECT AN OPTION: {R}")
+        if plot_choice.isdigit():
+            plot_choice = int(plot_choice)
+        else:
+            print(f'| {I}Not a valid option{R}')
+            continue
+        if plot_choice == 0:
+            print(f"| {I}Returning to the network menu...{R}")
+            break
+        accessible_stops, inaccessible_stops, unknown_stops = categorise_stops(network)
+        accessible_count = len(accessible_stops)
+        inaccessible_count = len(inaccessible_stops)
+        unknown_count = len(unknown_stops)
+        total = accessible_count + inaccessible_count + unknown_count
+        if plot_choice == 1:
+            plot_pie(accessible_count, inaccessible_count, unknown_count)
+            plt.show()
+        elif plot_choice == 2:
+            plot_bar(network)
+            plt.show()
+        elif plot_choice == 3:
+            plot_map(accessible_stops, inaccessible_stops)
+            plt.show()
+        elif plot_choice == 4:
+            plot_summary(network)
+            plt.show()
+        elif plot_choice == 5:
+            plot_top_routes(network)
+            plt.show()
+        else:
+            print(f'| {I}Not a valid option{R}')
+            continue
+
+def categorise_stops(network):
     accessible_stops = []
     inaccessible_stops = []
     unknown_stops = []
@@ -193,16 +243,4 @@ def show_all_plots(network):
             inaccessible_stops.append(stop)
         else:
             unknown_stops.append(stop)
-
-    accessible_count = len(accessible_stops)
-    inaccessible_count = len(inaccessible_stops)
-    unknown_count = len(unknown_stops)
-    total = accessible_count + inaccessible_count + unknown_count
-
-    plot_pie(accessible_count, inaccessible_count, unknown_count)
-    plot_bar(network)
-    plot_map(accessible_stops, inaccessible_stops)
-    plot_summary(network)
-    plot_top_routes(network)
-
-    plt.show()
+    return accessible_stops, inaccessible_stops, unknown_stops
